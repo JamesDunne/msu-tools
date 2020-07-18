@@ -67,6 +67,7 @@ func convertMSU(msuFilename string) (loopPoint uint32) {
 	}
 	chunk := make([]byte, 4096)
 	n, err := bfi.Read(chunk)
+	written := 0
 	for n > 0 {
 		k := 0
 		j := 0
@@ -74,6 +75,7 @@ func convertMSU(msuFilename string) (loopPoint uint32) {
 			buf.Data[k] = int(binary.LittleEndian.Uint16(chunk[j : j+2]))
 			j += 2
 			k++
+			written += 2
 		}
 		buf.Data = buf.Data[0:k]
 		err = wo.Write(buf)
@@ -83,5 +85,44 @@ func convertMSU(msuFilename string) (loopPoint uint32) {
 
 		n, err = bfi.Read(chunk)
 	}
+
+
+	// Write a "smpl" chunk:
+	// chunkID
+	wo.AddLE([]byte("smpl"))
+	// chunkSize
+	wo.AddLE(uint32(9*4 + 6*4))
+	// dwManufacturer
+	wo.AddLE(uint32(0))
+	// dwProduct
+	wo.AddLE(uint32(0))
+	// dwSamplePeriod
+	wo.AddLE(uint32(22675)) // 44.1 kHz in nanoseconds
+	// dwMIDIUnityNote
+	wo.AddLE(uint32(60))
+	// dwMIDIPitchFraction
+	wo.AddLE(uint32(0))
+	// dwSMPTEFormat
+	wo.AddLE(uint32(0))
+	// dwSMPTEOffset
+	wo.AddLE(uint32(0))
+	// cSampleLoops
+	wo.AddLE(uint32(1))
+	// cbSamplerData
+	wo.AddLE(uint32(0))
+
+	// dwIdentifier
+	wo.AddLE(uint32(0))
+	// dwType
+	wo.AddLE(uint32(0)) // loop forward
+	// dwStart
+	wo.AddLE(uint32(loopPoint))
+	// dwEnd
+	wo.AddLE(uint32(written))
+	// dwFraction
+	wo.AddLE(uint32(0))
+	// dwPlayCount
+	wo.AddLE(uint32(0))
+
 	return
 }
