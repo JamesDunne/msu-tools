@@ -3,11 +3,14 @@ package main
 import (
 	"bufio"
 	"encoding/binary"
+	"encoding/csv"
+	"fmt"
 	"github.com/go-audio/audio"
 	"github.com/go-audio/wav"
 	"log"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -16,12 +19,32 @@ func FilenameWithoutExtension(fn string) string {
 }
 
 func main() {
-	for i := 1; i < len(os.Args); i++ {
-		convertWAV(os.Args[i])
+	if len(os.Args) == 1 {
+		fmt.Println("usage: wavmsu tracks.csv\n\nThe CSV file must contain the filename first then the loop sample point")
+		return
+	}
+
+	csvFilename := os.Args[1]
+	ci, err := os.Open(csvFilename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer ci.Close()
+
+	cr := csv.NewReader(ci)
+	record, err := cr.Read()
+	for record != nil {
+		filename := record[0]
+		loopPoint, _ := strconv.ParseUint(record[1], 10, 32)
+
+		log.Printf("%s with loop at %d\n", filename, loopPoint)
+		convertWAV(filename, uint32(loopPoint))
+
+		record, err = cr.Read()
 	}
 }
 
-func convertWAV(wavFilename string) {
+func convertWAV(wavFilename string, loopPoint uint32) {
 	fi, err := os.Open(wavFilename)
 	if err != nil {
 		log.Fatal(err)
@@ -37,8 +60,9 @@ func convertWAV(wavFilename string) {
 	}
 	defer fo.Close()
 
-	hdr := []byte{0, 0, 0, 0}
 	fo.WriteString("MSU1")
+	hdr := []byte{0, 0, 0, 0}
+	binary.LittleEndian.PutUint32(hdr, loopPoint)
 	fo.Write(hdr)
 
 	bfo := bufio.NewWriter(fo)

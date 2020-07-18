@@ -3,11 +3,13 @@ package main
 import (
 	"bufio"
 	"encoding/binary"
+	"encoding/csv"
 	"github.com/go-audio/audio"
 	"github.com/go-audio/wav"
 	"log"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -16,12 +18,17 @@ func FilenameWithoutExtension(fn string) string {
 }
 
 func main() {
+	cw := csv.NewWriter(os.Stdout)
 	for i := 1; i < len(os.Args); i++ {
-		convertMSU(os.Args[i])
+		filename := os.Args[i]
+		loopPoint := convertMSU(filename)
+
+		_ = cw.Write([]string{filename, strconv.FormatUint(uint64(loopPoint), 10)})
+		cw.Flush()
 	}
 }
 
-func convertMSU(msuFilename string) {
+func convertMSU(msuFilename string) (loopPoint uint32) {
 	fi, err := os.Open(msuFilename)
 	if err != nil {
 		log.Fatal(err)
@@ -47,6 +54,7 @@ func convertMSU(msuFilename string) {
 
 	// read 4x 0 bytes:
 	_, _ = fi.Read(hdr)
+	loopPoint = binary.LittleEndian.Uint32(hdr)
 
 	bfi := bufio.NewReader(fi)
 	buf := &audio.IntBuffer{
@@ -75,4 +83,5 @@ func convertMSU(msuFilename string) {
 
 		n, err = bfi.Read(chunk)
 	}
+	return
 }
